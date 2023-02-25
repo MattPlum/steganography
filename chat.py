@@ -1,177 +1,99 @@
-from base64 import b64decode
-import webbrowser
 import openai
-import cv2
-import numpy as np
-import types
+from PIL import Image
+import requests
 
-def generateImage_AndOpen(prompt, image_count):
-    images = []
-    response = openai.Image.create(
-        prompt=prompt,
-        n = image_count,
-        size = '512x512',
-        response_format = 'url'
-    )
+# Set up the OpenAI API client
+openai.api_key = "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"
+prompt = input("Enter image to encode")
+# Create an OpenAI DALL-E image
+response = openai.Image.create(
+    prompt=prompt,
+    n=1,
+    size="1024x1024",
+    response_format="url"
+)
+image_url = response['data'][0]['url']
 
-    for image in response['data']:
-        webbrowser.open(image.url)
+# Load the image from the URL
+image_data = Image.open(requests.get(image_url, stream=True).raw)
 
-def messageToBinary(message):
-  if type(message) == str:
-    return ''.join([ format(ord(i), "08b") for i in message ])
-  elif type(message) == bytes or type(message) == np.ndarray:
-    return [ format(i, "08b") for i in message ]
-  elif type(message) == int or type(message) == np.uint8:
-    return format(message, "08b")
-  else:
-    raise TypeError("Input type not supported")
+# Convert the image to RGB mode
+image_data = image_data.convert("RGB")
 
-def hideData(image, secret_message):
+# Convert the secret message to binary
+secret_message = input("Enter a secret message")
+binary_message = ''.join(format(ord(i), '08b') for i in secret_message)
 
-  # calculate the maximum bytes to encode
-  n_bytes = image.shape[0] * image.shape[1] * 3 // 8
-  print("Maximum bytes to encode:", n_bytes)
+# Get the size of the image
+width, height = image_data.size
 
-  #Check if the number of bytes to encode is less than the maximum bytes in the image
-  if len(secret_message) > n_bytes:
-      raise ValueError("Error encountered insufficient bytes, need bigger image or less data !!")
-  
-  secret_message += "#####" # you can use any string as the delimeter
+# Check if the binary message can fit in the image
+if len(binary_message) > width * height * 3:
+    raise ValueError("Message is too long to encode in the image")
 
-  data_index = 0
-  # convert input data to binary format using messageToBinary() fucntion
-  binary_secret_msg = messageToBinary(secret_message)
+# Add padding to the binary message to fill the remaining bits in the image
+binary_message += "0" * (width * height * 3 - len(binary_message))
 
-  data_len = len(binary_secret_msg) #Find the length of data that needs to be hidden
-  for values in image:
-      for pixel in values:
-          # convert RGB values to binary format
-          r, g, b = messageToBinary(pixel)
-          # modify the least significant bit only if there is still data to store
-          if data_index < data_len:
-              # hide the data into least significant bit of red pixel
-              pixel[0] = int(r[:-1] + binary_secret_msg[data_index], 2)
-              data_index += 1
-          if data_index < data_len:
-              # hide the data into least significant bit of green pixel
-              pixel[1] = int(g[:-1] + binary_secret_msg[data_index], 2)
-              data_index += 1
-          if data_index < data_len:
-              # hide the data into least significant bit of  blue pixel
-              pixel[2] = int(b[:-1] + binary_secret_msg[data_index], 2)
-              data_index += 1
-          # if data is encoded, just break out of the loop
-          if data_index >= data_len:
-              break
+# Initialize a new image for the encoded message
+encoded_image = Image.new('RGB', (width, height), (0, 0, 0))
 
-  return image
+# Iterate over each pixel of the image in row-major order
+bit_index = 0
+for y in range(height):
+    for x in range(width):
+        # Get the RGB values of the current pixel
+        r, g, b = image_data.getpixel((x, y))
 
-def showData(image):
+        # If there are more bits in the message, modify the least significant bit of each color channel
+        if bit_index < len(binary_message):
+            # Red channel
+            bit = int(binary_message[bit_index])
+            r = (r & 0xfe) | bit
+            bit_index += 1
 
-  binary_data = ""
-  for values in image:
-      for pixel in values:
-          r, g, b = messageToBinary(pixel) #convert the red,green and blue values into binary format
-          binary_data += r[-1] #extracting data from the least significant bit of red pixel
-          binary_data += g[-1] #extracting data from the least significant bit of red pixel
-          binary_data += b[-1] #extracting data from the least significant bit of red pixel
-  # split by 8-bits
-  all_bytes = [ binary_data[i: i+8] for i in range(0, len(binary_data), 8) ]
-  # convert from bits to characters
-  decoded_data = ""
-  for byte in all_bytes:
-      decoded_data += chr(int(byte, 2))
-      if decoded_data[-5:] == "#####": #check if we have reached the delimeter which is "#####"
-          break
-  #print(decoded_data)
-  return decoded_data[:-5] #remove the delimeter to show the o
+            # Green channel
+            bit = int(binary_message[bit_index])
+            g = (g & 0xfe) | bit
+            bit_index += 1
 
-# Encode data into image 
-def encode_text(): 
-  data = input("Enter data to be encoded : ") 
-  if (len(data) == 0): 
-    raise ValueError('Data is empty')
+            # Blue channel
+            bit = int(binary_message[bit_index])
+            b = (b & 0xfe) | bit
+            bit_index += 1
 
-  image_prompt = input("Enter image to be generated : ")
-  generateImage_AndSave(image_prompt) 
-  image_name = "Img_1.jpg"
-  image = cv2.imread(image_name) # Read the input image using OpenCV-Python.
-  #It is a library of Python bindings designed to solve computer vision problems. 
-  
-  #details of the image
-  print("The shape of the image is: ",image.shape) #check the shape of image to calculate the number of bytes in it
-  print("The original image is as shown below: ")
-  resized_image = cv2.resize(image, (500, 500)) #resize the image as per your requirement
-  #cv2.imshow(resized_image) #display the image
-  
-      
+        # Create a new pixel with the modified red, green, and blue values
+        encoded_pixel = (r, g, b)
 
-  
-  filename = input("Enter the name of new encoded image(with extension): ")
-  encoded_image = hideData(image, data) # call the hideData function to hide the secret message into the selected image
-  cv2.imwrite(filename, encoded_image)
+        # Set the pixel in the new image
+        encoded_image.putpixel((x, y), encoded_pixel)
 
+# Save the encoded image
+encoded_image.save("encoded_image.png")
 
-# Decode the data in the image 
-def decode_text():
-  # read the image that contains the hidden image
-  image_name = input("Enter the name of the steganographed image that you want to decode (with extension) :") 
-  image = cv2.imread(image_name) #read the image using cv2.imread() 
+# Load the encoded image
+encoded_image_data = Image.open("encoded_image.png")
 
-  print("The Steganographed image is as shown below: ")
-  resized_image = cv2.resize(image, (500, 500))  #resize the original image as per your requirement
-  #cv2.imshow(resized_image) #display the Steganographed image
+# Get the size of the encoded image
+width, height = encoded_image_data.size
+
+# Initialize a variable to hold the binary message
+binary_message = ""
+
+# Iterate over each pixel of the encoded image in row-major order
+for y in range(height):
+    for x in range(width):
+        # Get the RGB values of the current pixel
+        r, g, b = encoded_image_data.getpixel((x, y))
+
+        # Append the least significant bit of each color channel to the binary message
+        binary_message += str(r & 1)
+        binary_message += str(g & 1)
+        binary_message += str(b & 1)
+
+# Convert the binary message to ASCII
+message = ""
+for i in range(0, len(binary_message), 8):
+    byte = binary_message[i:i+8]
+    message += chr(int(byte, 2))
     
-  text = showData(image)
-  return text
-
-
-# #generateImage_AndSave('Funny Dog', image_count=2)
-
-
-
-          
-
-def generateImage_AndSave(prompt):
-    response = openai.Image.create(
-        prompt=prompt,
-        n = 1,
-        size = '512x512',
-        response_format = 'b64_json'
-    )
-
-    prefix = 'Img'
-    image = response['data'][0]['b64_json']
-    with open(f'{prefix}_1.jpg','wb') as file:
-        file.write(b64decode(image))
-
-    return response["data"][0]["b64_json"]
-    # for image in response['data']:
-    #     images.append(image.b64_json)
-
-
-
-# Main Function
-def main():
-    openai.api_key = "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"
-    a = input("Image Steganography \n 1. Encode the data \n 2. Decode the data \n Your input is: ")
-    userinput = int(a)
-    if (userinput == 1):
-      print("\nEncoding....")
-      encode_text() 
-          
-    elif (userinput == 2):
-      print("\nDecoding....") 
-      print("Decoded message is " + decode_text()) 
-    else: 
-        raise Exception("Enter correct input") 
- 
-# Driver Code
-if __name__ == '__main__' :
- 
-    # Calling main function
-    main()
-
-# openai.api_key = "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"
-# generateImage_AndSave("dog")
+print(message)
