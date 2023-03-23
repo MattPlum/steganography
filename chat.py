@@ -1,10 +1,11 @@
 import openai
-from PIL import Image
+from PIL import Image  # Import the Pillow package for image processing
 import requests
 
 # Set up the OpenAI API client
-openai.api_key = "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"
-prompt = input("Enter image to encode")
+openai.api_key = "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"
+prompt = input("Enter image to encode :")
+
 # Create an OpenAI DALL-E image
 response = openai.Image.create(
     prompt=prompt,
@@ -19,9 +20,10 @@ image_data = Image.open(requests.get(image_url, stream=True).raw)
 
 # Convert the image to RGB mode
 image_data = image_data.convert("RGB")
+image_data.save("original_image.png")
 
-# Convert the secret message to binary
-secret_message = input("Enter a secret message")
+# Get the secret message from the user and convert to binary format
+secret_message = input("Enter a secret message : ")
 binary_message = ''.join(format(ord(i), '08b') for i in secret_message)
 
 # Get the size of the image
@@ -49,6 +51,7 @@ for y in range(height):
             # Red channel
             bit = int(binary_message[bit_index])
             r = (r & 0xfe) | bit
+            # print(format(r,'b'))
             bit_index += 1
 
             # Green channel
@@ -89,6 +92,8 @@ for y in range(height):
         binary_message += str(r & 1)
         binary_message += str(g & 1)
         binary_message += str(b & 1)
+
+binary_message = binary_message.rstrip("0")
 
 # Convert the binary message to ASCII
 message = ""
