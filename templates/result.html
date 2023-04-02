@@ -2,6 +2,38 @@
 <html>
 <head>
   <title>Steganography Result</title>
+  <style>
+    h1 {
+      color: #333;
+      font-size: 2.5em;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    h2 {
+      color: #666;
+      font-size: 1.5em;
+      margin-top: 50px;
+      margin-bottom: 20px;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+      margin: 0 auto;
+      margin-bottom: 20px;
+    }
+    a {
+      display: inline-block;
+      padding: 10px 20px;
+      background-color: #333;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 5px;
+      margin-right: 10px;
+    }
+    a:hover {
+      background-color: #666;
+    }
+  </style>
 </head>
 <body>
   <h1>Steganography Result</h1>
@@ -9,7 +41,9 @@
   <img src="{{ url_for('static', filename='original_image.png') }}">
   <h2>Encoded Image</h2>
   <img src="{{ url_for('static', filename='encoded_image.png') }}">
+  <div>
   <a href="{{ url_for('download_encoded_image') }}">Download encoded image</a>
   <a href="{{ url_for('home') }}">Home</a>
+</div>
 </body>
 </html>

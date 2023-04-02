@@ -43,6 +43,12 @@
           <input type="text" id="prompt" name="prompt" required>
           <label for="secret_message">Enter a secret message:</label>
           <input type="text" id="secret_message" name="secret_message" required>
+          <label for="encryption_method">Select an encryption method:</label>
+          <select name="encryption_method" id="encryption_method">
+            <option value="none">None</option>
+            <option value="caesar">Caesar Cipher</option>
+            <option value="vigenere">Vigenere Cipher</option>
+          </select>
           <button type="submit">Generate and Encode Image</button>
         </form>
         <form action="{{ url_for('decode_image') }}" method="POST" enctype="multipart/form-data">
