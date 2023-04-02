@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Steganography App</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+
+        }
+        .container {
+            margin: 0 auto;
+            max-width: 600px;
+            padding: 20px;
+            text-align: center;
+
+        }
+        h1 {
+            margin-top: 0;
+        }
+        form {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        label, input {
+            margin: 10px 0;
+        }
+        button {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Image Steganography App</h1>
+        <form action="{{ url_for('generate') }}" method="post">
+          <label for="prompt">Enter a prompt to generate an image:</label>
+          <input type="text" id="prompt" name="prompt" required>
+          <label for="secret_message">Enter a secret message:</label>
+          <input type="text" id="secret_message" name="secret_message" required>
+          <button type="submit">Generate and Encode Image</button>
+        </form>
+        <form action="{{ url_for('decode_image') }}" method="POST" enctype="multipart/form-data">
+          <label for="encoded_image">Upload an encoded image to decode:</label>
+          <input type="file" id="encoded_image" name="encoded_image" accept="image/*" required>
+          <button type="submit">Decode Image</button>
+        </form>
+    </div>
+</body>
+</html>

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Steganography Result</title>
+</head>
+<body>
+  <h1>Steganography Result</h1>
+  <h2>Original Image</h2>
+  <img src="{{ url_for('static', filename='original_image.png') }}">
+  <h2>Encoded Image</h2>
+  <img src="{{ url_for('static', filename='encoded_image.png') }}">
+  <a href="{{ url_for('download_encoded_image') }}">Download encoded image</a>
+  <a href="{{ url_for('home') }}">Home</a>
+</body>
+</html>
