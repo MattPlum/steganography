@@ -121,6 +121,33 @@ def vigenere_cipher(plaintext, key):
         ciphertext += chr(value + ord('a'))
     return ciphertext
 
+def binary_to_text(binary_str):
+    # Split the binary string into 8-bit chunks
+    chunks = [binary_str[i:i+8] for i in range(0, len(binary_str), 8)]
+
+    # Convert each chunk to its corresponding ASCII character
+    text = ''.join([chr(int(chunk, 2)) for chunk in chunks])
+
+    return text
+
+
+@app.route('/decode_image', methods=['POST'])
+def decode_image():
+    # Get the uploaded file strip bits to get the encoded message
+    encoded_image = request.files['encoded_image']
+    encoded_message = decode_message(encoded_image)
+
+    # Decrypt the message if Caesar Cipher was used        
+    if request.form['encryption_method'] == 'caesar':
+        decoded_message = caesar_decrypt(encoded_message, 3)
+    elif request.form['encryption_method'] == 'vigenere':
+        decoded_message = vigenere_decrypt(encoded_message, "secret")       
+    else:
+        decoded_message = encoded_message
+    
+    # Render the decoded message in the template
+    return render_template('decode.html', message=decoded_message)
+
 def decode_message(image_file):
     # Load the encoded image
     encoded_image = Image.open(image_file)
@@ -143,7 +170,7 @@ def decode_message(image_file):
             binary_message += str(g & 1)
             binary_message += str(b & 1)
 
-    binary_message = binary_message.rstrip("0")
+    #binary_message = binary_message.rstrip("0")
 
     # Convert the binary message to ASCII
     message = ""
@@ -154,25 +181,52 @@ def decode_message(image_file):
     # Return the decoded message
     return message
 
-def binary_to_text(binary_str):
-    # Split the binary string into 8-bit chunks
-    chunks = [binary_str[i:i+8] for i in range(0, len(binary_str), 8)]
+def caesar_decrypt(message, shift):
+    decrypted_message = ""
+    for letter in message:
+        if letter.isalpha():
+            new_letter_code = ord(letter) - shift
+            if letter.isupper():
+                if new_letter_code < ord('A'):
+                    new_letter_code += 26
+            elif letter.islower():
+                if new_letter_code < ord('a'):
+                    new_letter_code += 26
+            decrypted_message += chr(new_letter_code)
+        else:
+            decrypted_message += letter
+    return decrypted_message
 
-    # Convert each chunk to its corresponding ASCII character
-    text = ''.join([chr(int(chunk, 2)) for chunk in chunks])
+def vigenere_decrypt(ciphertext, key):
+    decrypted_message = ""
+    key_length = len(key)
+    key_index = 0
 
-    return text
+    for letter in ciphertext:
+        if letter.isalpha():
+            if letter.isupper():
+                base = ord('A')
+            else:
+                base = ord('a')
 
-@app.route('/decode_image', methods=['POST'])
-def decode_image():
-    # Get the uploaded image file from the request object
-    encoded_image = request.files['encoded_image']
+            key_letter = key[key_index % key_length]
 
-    # Decode the secret message from the image
-    secret_message = decode_message(encoded_image)
+            shift = ord(key_letter) - base
+            new_letter_code = ord(letter) - shift
 
-    # Render the decoded message in the template
-    return render_template('decode.html', message=secret_message)
+            if letter.isupper():
+                if new_letter_code < ord('A'):
+                    new_letter_code += 26
+            elif letter.islower():
+                if new_letter_code < ord('a'):
+                    new_letter_code += 26
+
+            decrypted_message += chr(new_letter_code)
+            key_index += 1
+        else:
+            decrypted_message += letter
+
+    return decrypted_message
 
 @app.route('/download_encoded_image')
 def download_encoded_image():
