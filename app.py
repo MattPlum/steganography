@@ -5,6 +5,7 @@ import requests
 import secrets
 import string
 import config 
+from io import BytesIO
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
@@ -13,33 +14,35 @@ app.secret_key = secrets.token_hex(16)
 def home():
     return render_template('index.html')
 
-# Generate encoded image
 @app.route('/generate', methods=['POST'])
 def generate():
-    # Get the prompt from the user
-    prompt = request.form.get('prompt')
+    # Get the prompt, either AI image or user uploaded image
+    if request.form['prompt'] != "":
+        prompt = request.form['prompt']
 
-    # Generate an image from the prompt using OpenAI API
-    openai.api_key = config.OPENAI_API_KEY
+        # Set the api key from the configuration file
+        openai.api_key = config.OPENAI_API_KEY
 
-    # Create an OpenAI DALL-E image
-    response = openai.Image.create(
-        prompt=prompt,
-        n=1,
-        size="256x256",
-        response_format="url"
-    )
+        # Create an OpenAI DALL-E image
+        response = openai.Image.create(
+            prompt=prompt,
+            n=1,
+            size="256x256",
+            response_format="url"
+        )
 
-    # Get the URL of the image generated from the API 
-    image_url = response['data'][0]['url']
+        # Get the URL of the image generated 
+        image_url = response['data'][0]['url']
 
-    # Load the image from the URL
-    image_data = Image.open(requests.get(image_url, stream=True).raw)
+        # Load the image from the URL
+        image_data = Image.open(requests.get(image_url, stream=True).raw)
+        original_image = image_data.save("static/original_image.png")
+    else:
+        user_image = request.files['user_image']
+        image_data = Image.open(BytesIO(user_image.read()))
 
-    # Convert the image to RGB mode
+    # Convert the image to RGB and save
     image_data = image_data.convert("RGB")
-    original_image = image_data.save("static/original_image.png")
-    
     # Get the secret message from the user and convert to binary format
     secret_message = request.form.get('secret_message')
     enc_method = request.form.get('encryption_method')
@@ -64,29 +67,29 @@ def generate():
     # Add padding to the binary message to fill the remaining bits in the image
     binary_message += "0" * (width * height * 3 - len(binary_message))
 
-    # Initialize a new image for the encoded message
+    # Make a new image for the encoded message
     encoded_image = Image.new('RGB', (width, height), (0, 0, 0))
 
-    # Iterate over each pixel of the image in row-major order
+    # Iterate over each pixel of the image
     bit_index = 0
     for y in range(height):
         for x in range(width):
             # Get the RGB values of the current pixel
             r, g, b = image_data.getpixel((x, y))
 
-            # If there are more bits in the message, modify the least significant bit of each color channel
+            # Check if there are more bits to replace
             if bit_index < len(binary_message):
-                # Red channel
+                # Red
                 bit = int(binary_message[bit_index])
                 r = (r & 0xfe) | bit
                 bit_index += 1
 
-                # Green channel
+                # Green
                 bit = int(binary_message[bit_index])
                 g = (g & 0xfe) | bit
                 bit_index += 1
 
-                # Blue channel
+                # Blue
                 bit = int(binary_message[bit_index])
                 b = (b & 0xfe) | bit
                 bit_index += 1
@@ -94,21 +97,23 @@ def generate():
             # Create a new pixel with the modified red, green, and blue values
             encoded_pixel = (r, g, b)
 
-            # Set the pixel in the new image
+            # Put the pixel in the new image
             encoded_image.putpixel((x, y), encoded_pixel)
 
     # Save the encoded image
     encoded_image.save('static/encoded_image.png')
 
-    return render_template('result.html', image_url=image_url)
+    # Render the result template HTML
+    return render_template('result.html')
 
+# Caesar Cipher function
 def caesar_cipher(plaintext, shift):
         alphabet = string.ascii_lowercase
         shifted_alphabet = alphabet[shift:] + alphabet[:shift]
         table = str.maketrans(alphabet, shifted_alphabet)
         return plaintext.translate(table)
 
-# Define the Vigenère cipher function
+# Vigenere cipher function
 def vigenere_cipher(plaintext, key):
     key = key.lower()
     plaintext = plaintext.lower()
@@ -121,11 +126,12 @@ def vigenere_cipher(plaintext, key):
         ciphertext += chr(value + ord('a'))
     return ciphertext
 
+# Convert binary to text
 def binary_to_text(binary_str):
-    # Split the binary string into 8-bit chunks
+    # Split the binary string into 8-bits
     chunks = [binary_str[i:i+8] for i in range(0, len(binary_str), 8)]
 
-    # Convert each chunk to its corresponding ASCII character
+    # Convert each 8-bit to its corresponding ASCII character
     text = ''.join([chr(int(chunk, 2)) for chunk in chunks])
 
     return text
@@ -148,6 +154,8 @@ def decode_image():
     # Render the decoded message in the template
     return render_template('decode.html', message=decoded_message)
 
+
+# Decode the message form the encoded image
 def decode_message(image_file):
     # Load the encoded image
     encoded_image = Image.open(image_file)
@@ -181,6 +189,7 @@ def decode_message(image_file):
     # Return the decoded message
     return message
 
+# Decryption method for a caesaer encrypted message
 def caesar_decrypt(message, shift):
     decrypted_message = ""
     for letter in message:
@@ -197,6 +206,8 @@ def caesar_decrypt(message, shift):
             decrypted_message += letter
     return decrypted_message
 
+
+# Decryption method for a vigenere encrypted message
 def vigenere_decrypt(ciphertext, key):
     decrypted_message = ""
     key_length = len(key)
@@ -228,6 +239,7 @@ def vigenere_decrypt(ciphertext, key):
 
     return decrypted_message
 
+# Route for downloading the encoded image
 @app.route('/download_encoded_image')
 def download_encoded_image():
     return send_file('static/encoded_image.png', as_attachment=True)
