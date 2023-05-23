@@ -67,15 +67,15 @@
         </form>
         <h2>Decryption</h2>
         <form action="{{ url_for('decode_image') }}" method="POST" enctype="multipart/form-data">
-            <label for="encryption_method">Select an decryption method:</label>
+            <label for="encryption_method">1. Select an decryption method:</label>
             <select name="encryption_method" id="encryption_method">
             <option value="none">None</option>
             <option value="caesar">Caesar Cipher</option>
             <option value="vigenere">Vigenere Cipher</option>
         </select>
-            <label for="encoded_image">Upload an encoded image to decode:</label>
+            <label for="encoded_image">2. Upload an encoded image to decode:</label>
             <input type="file" id="encoded_image" name="encoded_image" accept="image/*" required>
-            <button type="submit">Decode Image</button>
+            <button type="submit">3. Decode Image</button>
         </form>
     </div>
 </body>
