@@ -7,13 +7,21 @@ import string
 import config 
 from io import BytesIO
 
+# Initialize app and secret key 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 
+'''
+App route to the '/' base URL, which calls the render_template function to render the homepage index.html
+'''
 @app.route('/')
 def home():
     return render_template('index.html')
 
+'''
+App route to the generate() function which takes the generated AI image using the User's prompt, or their uploaded file then
+encodes their secret message using LSB steganography  
+'''
 @app.route('/generate', methods=['POST'])
 def generate():
     # Get the prompt, either AI image or user uploaded image
@@ -45,17 +53,17 @@ def generate():
     image_data = image_data.convert("RGB")
     # Get the secret message from the user and convert to binary format
     secret_message = request.form.get('secret_message')
-    enc_method = request.form.get('encryption_method')
+    encryption_method = request.form.get('encryption_method')
     width, height = image_data.size
     
-    if(enc_method == "none"):
+    if(encryption_method == "none"):
         binary_message = ''.join(format(ord(i), '08b') for i in secret_message)
-    elif enc_method == "caesar":
+    elif encryption_method == "caesar":
         # Apply the Caesar cipher with a shift of 3
         ciphertext = caesar_cipher(secret_message, 3)
         binary_message = ''.join(format(ord(i), '08b') for i in ciphertext)
         # Get the size of the image
-    elif enc_method == "vigenere":
+    elif encryption_method == "vigenere":
         # Apply the Vigenère cipher with a key of "secret"
         ciphertext = vigenere_cipher(secret_message, "secret")
         binary_message = ''.join(format(ord(i), '08b') for i in ciphertext)
@@ -77,7 +85,7 @@ def generate():
             # Get the RGB values of the current pixel
             r, g, b = image_data.getpixel((x, y))
 
-            # Check if there are more bits to replace
+            # Iterate over each bit in the message
             if bit_index < len(binary_message):
                 # Red
                 bit = int(binary_message[bit_index])
@@ -136,7 +144,11 @@ def binary_to_text(binary_str):
 
     return text
 
-
+'''
+App route to the decode_image() function, which gets the encoded_image from request.files call, and decodes the image using
+none, caesar, or vigenere decryption methods. Then it renders the result to decode.html to print out the decoded message to the user's
+screen
+'''
 @app.route('/decode_image', methods=['POST'])
 def decode_image():
     # Get the uploaded file strip bits to get the encoded message
@@ -157,30 +169,26 @@ def decode_image():
 
 # Decode the message form the encoded image
 def decode_message(image_file):
-    # Load the encoded image
+    # Load the encoded image, get the size and initialize the binary message for building
     encoded_image = Image.open(image_file)
-
-    # Get the size of the image
     width, height = encoded_image.size
-
-    # Initialize the binary message variable
     binary_message = ''
 
     # Iterate over each pixel of the encoded image in row-major order
     print("Decoding...")
     for y in range(height):
         for x in range(width):
-            # Get the RGB values of the current pixel
+            # Get the RGB pixel values of the pixel
             r, g, b = encoded_image.getpixel((x, y))
 
-            # Append the least significant bit of each color channel to the binary message
+            # Take the LSB value and add to the message to recreate the original message
             binary_message += str(r & 1)
             binary_message += str(g & 1)
             binary_message += str(b & 1)
 
-    #binary_message = binary_message.rstrip("0")
+    # binary_message = binary_message.rstrip("0")
 
-    # Convert the binary message to ASCII
+    # Convert the final message from binary to ASCII so user can read
     message = ""
     for i in range(0, len(binary_message), 8):
         byte = binary_message[i:i+8]
@@ -191,17 +199,22 @@ def decode_message(image_file):
 
 # Decryption method for a caesaer encrypted message
 def caesar_decrypt(message, shift):
+    # Initialize the decrypted message for building
     decrypted_message = ""
+    # Iterate over each letter
     for letter in message:
         if letter.isalpha():
-            new_letter_code = ord(letter) - shift
+            # Find original letter by subctracting shift value
+            new_letter = ord(letter) - shift
+            # Handle uppercase/lowercase
             if letter.isupper():
-                if new_letter_code < ord('A'):
-                    new_letter_code += 26
+                if new_letter < ord('A'):
+                    new_letter += 26
             elif letter.islower():
-                if new_letter_code < ord('a'):
-                    new_letter_code += 26
-            decrypted_message += chr(new_letter_code)
+                if new_letter < ord('a'):
+                    new_letter += 26
+            # Add the new letter to the decrypted message
+            decrypted_message += chr(new_letter)
         else:
             decrypted_message += letter
     return decrypted_message
@@ -210,7 +223,7 @@ def caesar_decrypt(message, shift):
 # Decryption method for a vigenere encrypted message
 def vigenere_decrypt(ciphertext, key):
     decrypted_message = ""
-    key_length = len(key)
+    key_len = len(key)
     key_index = 0
 
     for letter in ciphertext:
@@ -220,7 +233,7 @@ def vigenere_decrypt(ciphertext, key):
             else:
                 base = ord('a')
 
-            key_letter = key[key_index % key_length]
+            key_letter = key[key_index % key_len]
 
             shift = ord(key_letter) - base
             new_letter_code = ord(letter) - shift
@@ -239,10 +252,16 @@ def vigenere_decrypt(ciphertext, key):
 
     return decrypted_message
 
-# Route for downloading the encoded image
+'''
+Route for download_encoded_image() which allows the user to download their encoded image to their personal PC
+'''
 @app.route('/download_encoded_image')
 def download_encoded_image():
     return send_file('static/encoded_image.png', as_attachment=True)
 
+
+'''
+Runs the app in debug mode
+'''
 if __name__ == '__main__':
     app.run(debug=True)
